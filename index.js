@@ -25,9 +25,24 @@ function processLine(acc, x) {
       address        : parts[0]
     , size           : parts[1]
     , decimalAddress : decimal
+    , decimalSize    : parseInt(parts[1], 16)
+    , index          : acc.length
     , symbol         : parts.slice(2).join(' ') }
 
   acc.push(item);
+  return acc;
+}
+
+// addresses are reused by V8, so we get overlapping entries in map
+// we assume that profiling run used the last address found in the map
+// so we discard the earlier entry when we find an overlap 
+function noOverlap(acc, item) {
+  var it = acc[acc.length - 1];
+  if (it && it.decimalAddress + it.decimalSize > item.decimalAddress) {
+    if (it.index < item.index) acc[acc.length - 1] = item;
+  } else {
+    acc.push(item);
+  }
   return acc;
 }
 
@@ -46,6 +61,7 @@ function JITResolver(map) {
   this._addresses = lines
     .reduce(processLine, [])
     .sort(byDecimalAddress)
+    .reduce(noOverlap, [])
 
   this._len = this._addresses.length;
 }
